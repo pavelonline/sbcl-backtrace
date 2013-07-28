@@ -1,5 +1,25 @@
 (in-package :sbcl-backtrace)
 
+;;;;;
+
+(define-condition error-raised-condition (condition)
+  ((original-condition
+    :initarg :original-condition
+    :accessor original-condition))
+  (:report (lambda (condition stream)
+             (format stream "Condition in debugger code~@[: ~A~]" 
+                     (original-condition condition))))
+  (:documentation
+   "Wrapper for conditions that should not be debugged.
+
+When a condition arises from the internals of the debugger, it is not
+desirable to debug it -- we'd risk entering an endless loop trying to
+debug the debugger! Instead, such conditions can be reported to the
+user without (re)entering the debugger by wrapping them as
+`sldb-condition's."))
+
+;;;;;
+
 (defun raise-find-location-error (code-location)
   (error 'information-retrieve-error
 	 :text "Cannot find location for ~a"
@@ -174,3 +194,7 @@
 (defun string-source-position (code-location string)
   (with-input-from-string (s string)
     (stream-source-position code-location s)))
+
+(defun frame-debug-vars (frame)
+  "Return a vector of debug-variables in frame."
+  (sb-di::debug-fun-debug-vars (sb-di:frame-debug-fun frame)))
