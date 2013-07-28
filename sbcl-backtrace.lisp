@@ -14,14 +14,6 @@
      while frame
      collect frame))
 
-(defmacro with-print-backtrace-on-error ((&optional (stream '*standard-output*)) &body body)
-  (let ((stream-var (gensym "STREAM")))
-    `(let ((,stream-var ,stream))
-       (handler-bind ((error (lambda (c)
-			       (print-stack ,stream-var)
-			       (error c))))
-	 ,@body))))
-
 (defun frame-debug-values (frame)
   (let ((vars (frame-debug-vars frame)))
     (when vars
@@ -62,3 +54,12 @@
     (print-frame frame stream)))
   
   
+(defmacro with-print-backtrace-on-error ((&optional (stream '*standard-output*)) &body body)
+  "Print stack on any error and then raise caught conition"
+  (let ((stream-var (gensym "STREAM")))
+    `(let ((,stream-var ,stream))
+       (handler-bind ((error (lambda (c)
+			       (print-stack ,stream-var)
+			       (error c))))
+	 ,@body))))
+
