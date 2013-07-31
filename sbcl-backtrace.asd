@@ -6,8 +6,8 @@
   :author "Pavel Kukushkin <k.pavel.g@gmail.com>"
   :licence "Public Domain"
   :components ((:file "package")
-	       (:file "swank-backend-imports" :depends-on ("package"))
-	       (:file "slime-imports" :depends-on ("package" "swank-backend-imports"))
+	       (:file "swank-parser-import" :depends-on ("package"))
+	       (:file "slime-imports" :depends-on ("package" "swank-parser-import"))
 	       (:file "sbcl-backtrace" :depends-on ("package" "slime-imports"))
 	       (:file "test" :depends-on ("package" "sbcl-backtrace"))))
 		     

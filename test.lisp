@@ -19,20 +19,24 @@
       "<location-unavailable>"))
 
 
-(defun m-fun (n)
+(defun m-fun (n err)
   (if (zerop n)
-      (error "error")
+      (if err
+	(error "error")
+	(backtrace-list))
       (let ((bt
-	     (m-fun (1- n))))
+	     (m-fun (1- n) err)))
 	(format t "IN: ~a~%" n)
 	bt)))
 
 (defun test-stack-trace ()
-  (m-fun 6))
+  (let ((bt (m-fun 6 nil)))
+    (%print-stack bt *standard-output*)
+    bt))
 
 (defun test-start ()
   (with-print-backtrace-on-error ()
-    (m-fun 6)))
+    (m-fun 6 t)))
 
 
 (defun test-frame ()

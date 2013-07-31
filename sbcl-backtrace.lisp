@@ -49,10 +49,12 @@
 	      (length values)
 	      (length values)))))
 
-(defun print-stack (&optional (stream *standard-output*))
-  (dolist (frame (backtrace-list))
+(defun %print-stack (bt stream)
+  (dolist (frame bt)
     (print-frame frame stream)))
-  
+
+(defun print-stack (&optional (stream *standard-output*))
+  (%print-stack (backtrace-list) stream))
   
 (defmacro with-print-backtrace-on-error ((&optional (stream '*standard-output*)) &body body)
   "Print stack on any error and then raise caught conition"
