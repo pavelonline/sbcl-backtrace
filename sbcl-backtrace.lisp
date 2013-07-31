@@ -7,51 +7,102 @@
    (object :initarg :object
 	   :reader object)))
 
-(defun backtrace-list ()
-  "Return stack of the call as list starting from top call"
-  (loop for frame = (sb-di:top-frame)
-     then (sb-di:frame-down frame)
-     while frame
-     collect frame))
+(defgeneric pretty-print (object stream)
+  (:documentation "Pretty print object"))
 
-(defun frame-debug-values (frame)
-  (let ((vars (frame-debug-vars frame)))
-    (when vars
-      (loop for var across vars
-	 collect
-	   (list
-	    (sb-di:debug-var-symbol var)
-	    (handler-case
-		(sb-di:debug-var-valid-value var frame)
-	      (sb-di:invalid-value ()
-		0)))))))
-    
-(defun vec-to-list (vec)
-  (when vec
-    (loop for elt across vec collect elt)))
+(defclass pretty-printable () ())
 
-(defun print-frame (frame &optional (stream *standard-output*))
+(defmethod pretty-print ((obj (eql nil)) stream)
+  (format stream "NIL"))
+
+(defgeneric to-string (obj)
+  (:documentation "Pretty string representation of obj"))
+
+(defmethod to-string ((obj (eql nil)))
+  (values "NIL"))
+
+(defmethod to-string ((obj pretty-printable))
+  (with-output-to-string (s)
+    (pretty-print obj s)))
+      
+
+(defmethod print-object ((object pretty-printable) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (pretty-print object stream)))
+
+(defclass stack-frame (pretty-printable)
+  ((number :initarg :number :reader stack-number
+	     :initform (error "Mandatory field"))
+   (name :initarg :name :reader name
+	 :initform (error "Mandatory field"))
+   (location :initarg :location :reader location
+	     :initform (error "Mandatory field"))
+   (args :initarg :args :reader args
+	 :initform (error "Mandatory field"))))
+
+(defmethod pretty-print ((object stack-frame) stream)
   ;; FORMAT <stack-number>:<file-name>:<position>:<functionname>args
+  (format stream "~a:~a:~a(~{~a~^, ~})"
+	  (stack-number object)
+	  (to-string (location object))
+	  (name object)
+	  (args object)))
+
+
+(defun frame-location (frame)
   (with-accessors ((debug-fn sb-di:frame-debug-fun)
 		   (number sb-di:frame-number)
 		   (code-location sb-di:frame-code-location))
       frame
-    (let ((location (handler-case
-			(code-location-source-location-excp code-location)
-		      (information-retrieve-error () nil)))
-	  (values (frame-debug-values frame)))
-      (format stream
-	      "~a:~:[<undefined>~;~:*~a~]:~:[<undefined>~;~:*~a~]:~a~[~:;~%ARGS: (~a)~]~%"
-	      number
-	      (location-buffer location)
-	      (location-position location)
-	      (sb-di:debug-fun-name debug-fn)
-	      (length values)
-	      (length values)))))
+    (handler-case
+	(code-location-source-location-excp code-location)
+      (information-retrieve-error () nil))))
+
+(defun frame-fun-name (frame)
+  (sb-di:debug-fun-name (sb-di:frame-debug-fun frame)))
+
+(defun frame-args (frame)
+  (let ((code-location (sb-di:frame-code-location frame))
+	(all-vars (sb-di::debug-fun-debug-vars (sb-di:frame-debug-fun frame))))
+    (mapcar (lambda (var)
+	      (sb-di:debug-var-value var frame))
+	    (vec-to-list
+	     (remove-if (lambda (var)
+			  (ecase (sb-di:debug-var-validity var code-location)
+			    (:valid nil)
+			    ((:invalid :unknown) t)))
+			all-vars)))))
+
+(defun %frame-to-stack-frame (frame)
+  (make-instance 'stack-frame
+		 :number
+		 (sb-di:frame-number frame)
+		 :location
+		 (frame-location frame)
+		 :args
+		 (frame-args frame)
+		 :name (frame-fun-name frame)))
+
+(defun %stack-list ()
+  (loop for frame = (sb-di:top-frame)
+     then (sb-di:frame-down frame)
+     while frame
+     collect (%frame-to-stack-frame frame)))
+
+  
+
+(defun backtrace-list ()
+  "Return stack of the call as list starting from top call"
+  (%stack-list))
+
+(defun vec-to-list (vec)
+  (when vec
+    (loop for elt across vec collect elt)))
 
 (defun %print-stack (bt stream)
   (dolist (frame bt)
-    (print-frame frame stream)))
+    (pretty-print frame stream)
+    (format stream "~%")))
 
 (defun print-stack (&optional (stream *standard-output*))
   (%print-stack (backtrace-list) stream))

@@ -27,17 +27,19 @@ user without (re)entering the debugger by wrapping them as
 
 ;;;;;
 
+(defclass location (pretty-printable)
+  ((file :initarg :file
+	 :reader file
+	 :initform (error "Mandatory field"))
+   (pos :initarg :pos
+	:reader pos
+	:initform (error "Mandatory field"))))
 
-(defstruct (:location (:type list) :named
-                      (:constructor make-location
-                                    (buffer position &optional hints)))
-  buffer position
-  ;; Hints is a property list optionally containing:
-  ;;   :snippet SOURCE-TEXT
-  ;;     This is a snippet of the actual source text at the start of
-  ;;     the definition, which could be used in a text search.
-  hints)
+(defmethod pretty-print ((obj location) stream)
+  (format stream "~a:~a" (file obj) (pos obj)))
 
+(defun make-location (file pos)
+  (make-instance 'location :file file :pos pos))
 
 ;;;;;
 

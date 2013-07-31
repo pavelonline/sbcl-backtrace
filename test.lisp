@@ -18,27 +18,35 @@
 	      (location-position location))
       "<location-unavailable>"))
 
-
-(defun m-fun (n err)
+(defun call-in-stack-depth (n fun)
   (if (zerop n)
-      (if err
-	(error "error")
-	(backtrace-list))
-      (let ((bt
-	     (m-fun (1- n) err)))
-	(format t "IN: ~a~%" n)
-	bt)))
+      (funcall fun)
+      (progn
+      (let ((res (call-in-stack-depth (1- n) fun)))
+	res))))
 
 (defun test-stack-trace ()
-  (let ((bt (m-fun 6 nil)))
-    (%print-stack bt *standard-output*)
-    bt))
-
-(defun test-start ()
-  (with-print-backtrace-on-error ()
-    (m-fun 6 t)))
-
+  (call-in-stack-depth 6
+		       #'print-stack))
+		       
 
 (defun test-frame ()
   (print-frame
    (nth 4 (test-stack-trace))))
+
+(defun show-frame-args (frame#)
+  (let* ((frame (nth frame# (backtrace-list)))
+	 (code-location (sb-di:frame-code-location frame))
+	 (all-vars (sb-di::debug-fun-debug-vars (sb-di:frame-debug-fun frame))))
+    (list
+     frame
+     all-vars
+     (mapcar (lambda (var)
+	       (sb-di:debug-var-value var frame))
+	     (vec-to-list
+	      (remove-if (lambda (var)
+			   (ecase (sb-di:debug-var-validity var code-location)
+			     (:valid nil)
+			     ((:invalid :unknown) t)))
+			all-vars))))))
+  
